@@ -1,6 +1,7 @@
 package com.example.jetquiz
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,47 +48,164 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp() {
+    val context = LocalContext.current
     val questionViewModel = viewModel<QuestionViewModel>()
-    val data = questionViewModel.data.value.data
     val count = remember{ mutableStateOf(0) }
     val answered = remember{ mutableStateOf(false) }
 
-    if (data != null) {
-        Column {
-            val item = data[count.value]
+    // 1
+    if (questionViewModel.getLoadingState().value)
+        LoadingScreen()
+    else if (questionViewModel.getData().value.data == null)
+        ErrorScreen(questionViewModel)
+    else if (count.value + 1 > questionViewModel.getTotalQuestionCount())
+        ReachAllQuiz()
+    else {
+        Column(
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            QuestionHeader(count.value + 1, questionViewModel.getTotalQuestionCount())
+            val item = questionViewModel.getData().value.data!![count.value]
+            Spacer(modifier = Modifier.size(10.dp))
             ShowQuestionItem(item, answered.value) {
                 answered.value = true
             }
-            Spacer(modifier = Modifier.size(5.dp))
-            Button(
-                onClick = {
-                    answered.value = false
-                    count.value += 1
-                }
+            Spacer(modifier = Modifier.size(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("Next")
+                Button(
+                    onClick = {
+                        if (answered.value) {
+                            answered.value = false
+                            count.value += 1
+                        }
+                        else Toast.makeText(context, "You need to answer this quiz first.\nClick \"Skip\" instead to skip question.", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(30.dp))
+                ) {
+                    Text("Next")
+                }
+                Spacer(modifier = Modifier.size(10.dp))
+                Button(
+                    onClick = {
+                        answered.value = false
+                        count.value += 1
+                    },
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(30.dp))
+                ) {
+                    Text("Skip")
+                }
             }
         }
     }
-    else {
-        Column() {
-            Text("Cannot fetch questions from server!")
-            Text("Check your internet connection and try again.")
+}
+
+@Composable
+fun LoadingScreen() {
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Loading quiz from server.")
+        Text("Please wait...")
+    }
+}
+
+@Composable
+fun ErrorScreen(questionViewModel: QuestionViewModel) {
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Cannot fetch questions from server!")
+        Text("Check your internet connection and try again.")
+        Spacer(modifier = Modifier.size(5.dp))
+        Button(onClick = {
+            questionViewModel.getAllQuestions()
+        }) {
+            Text("Reload")
         }
+    }
+}
+
+@Composable
+fun ReachAllQuiz() {
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("You reached of the end question of quiz!")
+        Text("Thanks for take quiz from this app!")
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun ShowQuestionTest() {
-    val sample = QuestionItem(
-        question = "LFD2 was banned in Australia",
-        category = "world",
-        answer = "True",
-        choices = listOf("False", "True", "123"),
-    )
-    ShowQuestionItem(sample, false) {
+    Column {
+        QuestionHeader(1, 1)
+        val sample = QuestionItem(
+            question = "LFD2 was banned in Australia",
+            category = "world",
+            answer = "True",
+            choices = listOf("False", "True", "123"),
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        ShowQuestionItem(sample, true) {
 
+        }
+    }
+}
+
+
+@Composable
+fun QuestionHeader(current: Int, total: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(15.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (isSystemInDarkTheme())
+                    QuestionHeaderColorDark
+                else QuestionHeaderColorLight
+            ),
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(top = 40.dp, bottom = 40.dp, start = 20.dp, end = 20.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = "Question $current",
+                style = MaterialTheme.typography.h4,
+                color = (
+                        if (isSystemInDarkTheme()) TextDark
+                        else TextLight
+                        )
+            )
+            Spacer(modifier = Modifier.size(5.dp))
+            Text(
+                modifier = Modifier
+                    .padding(bottom = 5.dp),
+                text = "/$total",
+                style = MaterialTheme.typography.h6,
+                color = (
+                        if (isSystemInDarkTheme()) TextDark
+                        else TextLight
+                        )
+            )
+        }
     }
 }
 
@@ -94,9 +213,8 @@ fun ShowQuestionTest() {
 fun ShowQuestionItem(item: QuestionItem, answered: Boolean, answer: () -> Unit) {
     val selectedOption = remember {mutableStateOf("")}
 
-    if (!answered) {
+    if (!answered)
         selectedOption.value = ""
-    }
 
     Column(
         modifier = Modifier
@@ -128,7 +246,7 @@ fun ShowQuestionItem(item: QuestionItem, answered: Boolean, answer: () -> Unit) 
                             else DefaultAnswerColorLight
                         )
                         .border(
-                            2.dp,
+                            1.dp,
                             BorderAnswerColor,
                             AnswerBorderShapes
                         )
@@ -172,13 +290,14 @@ fun ShowQuestionItem(item: QuestionItem, answered: Boolean, answer: () -> Unit) 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(bottom = 10.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(ResultBoxColor),
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp),
+                        .padding(15.dp),
                 ) {
                     Text(
                         text = resultText
