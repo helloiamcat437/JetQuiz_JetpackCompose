@@ -1,4 +1,8 @@
 package com.example.jetquiz.model
 
-class QuestionItem {
-}
+data class QuestionItem (
+    val answer: String,
+    val category: String,
+    val choices: List<String>,
+    val question: String,
+)

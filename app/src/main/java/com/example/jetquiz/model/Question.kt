@@ -1,4 +1,3 @@
 package com.example.jetquiz.model
 
-class Question {
-}
+class Question: ArrayList<QuestionItem>()

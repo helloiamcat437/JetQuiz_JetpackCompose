@@ -18,6 +18,8 @@ object AppModule {
     fun provideQuestionRepository(api: QuestionApi)
     = QuestionRepository(api)
 
+    @Singleton
+    @Provides
     fun provideQuestionApi() : QuestionApi {
         return Retrofit.Builder()
             .baseUrl("https://raw.githubusercontent.com")
